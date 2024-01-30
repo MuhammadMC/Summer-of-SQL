@@ -1,2 +1,2 @@
-# Summer-of-SQL :tech:
+# Summer-of-SQL
 Summer of SQL challenges 
