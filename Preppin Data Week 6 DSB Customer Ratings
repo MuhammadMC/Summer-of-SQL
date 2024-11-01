@@ -1,0 +1,346 @@
+-- Reshape the data so we have 5 rows for each customer, with responses for the Mobile App and Online Interface being in separate fields on the same row
+-- Clean the question categories so they don't have the platform in from of them
+-- e.g. Mobile App - Ease of Use should be simply Ease of Use
+-- Exclude the Overall Ratings, these were incorrectly calculated by the system
+-- Calculate the Average Ratings for each platform for each customer 
+-- Calculate the difference in Average Rating between Mobile App and Online Interface for each customer
+-- Catergorise customers as being:
+-- Mobile App Superfans if the difference is greater than or equal to 2 in the Mobile App's favour
+-- Mobile App Fans if difference >= 1
+-- Online Interface Fan
+-- Online Interface Superfan
+-- Neutral if difference is between 0 and 1
+-- Calculate the Percent of Total customers in each category, rounded to 1 decimal place
+-- Output the data
+-- Reshape the data so we have 5 rows for each customer, with responses for the Mobile App and Online Interface being in separate fields on the same row
+
+
+SELECT 
+  * 
+from 
+  PD2023_WK06_DSB_CUSTOMER_SURVEY as CS unpivot (
+    rating for First_pivot in (
+      MOBILE_APP___EASE_OF_ACCESS, mobile_app___ease_of_use, 
+      mobile_app___navigation, mobile_app___likelihood_to_recommend, 
+      mobile_app___overall_rating, online_interface___ease_of_access, 
+      online_interface___ease_of_use, 
+      online_interface___likelihood_to_recommend, 
+      online_interface___navigation, 
+      online_interface___overall_rating
+    )
+  ) 
+order by 
+  customer_id;
+-- Clean the question categories so they don't have the platform in from of them
+-- e.g. Mobile App - Ease of Use should be simply Ease of Use
+-- Exclude the Overall Ratings, these were incorrectly calculated by the system
+With CTE1 as (
+  SELECT 
+    * 
+  from 
+    PD2023_WK06_DSB_CUSTOMER_SURVEY as CS unpivot (
+      rating for Pivot1 in (
+        MOBILE_APP___EASE_OF_ACCESS, mobile_app___ease_of_use, 
+        mobile_app___navigation, mobile_app___likelihood_to_recommend, 
+        mobile_app___overall_rating, online_interface___ease_of_access, 
+        online_interface___ease_of_use, 
+        online_interface___likelihood_to_recommend, 
+        online_interface___navigation, 
+        online_interface___overall_rating
+      )
+    ) 
+  order by 
+    customer_id
+) 
+SELECT 
+  customer_id, 
+  Rating, 
+  split_part(Pivot1, '___', 2) as rating_type, 
+  split_part(Pivot1, '___', 1) as mobile_or_Online 
+from 
+  CTE1 
+where 
+  RATING_TYPE != 'OVERALL_RATING';
+-- Calculate the Average Ratings for each platform for each customer 
+With CTE1 as (
+  SELECT 
+    * 
+  from 
+    PD2023_WK06_DSB_CUSTOMER_SURVEY as CS unpivot (
+      rating for Pivot1 in (
+        MOBILE_APP___EASE_OF_ACCESS, mobile_app___ease_of_use, 
+        mobile_app___navigation, mobile_app___likelihood_to_recommend, 
+        mobile_app___overall_rating, online_interface___ease_of_access, 
+        online_interface___ease_of_use, 
+        online_interface___likelihood_to_recommend, 
+        online_interface___navigation, 
+        online_interface___overall_rating
+      )
+    ) 
+  order by 
+    customer_id
+), 
+CTE2 as (
+  SELECT 
+    customer_id, 
+    Rating, 
+    split_part(Pivot1, '___', 2) as rating_type, 
+    split_part(Pivot1, '___', 1) as Platform 
+  from 
+    CTE1 
+  where 
+    RATING_TYPE != 'OVERALL_RATING'
+) 
+Select 
+  Platform, 
+  AVG(rating), 
+  customer_id 
+from 
+  CTE2 
+group by 
+  Platform, 
+  customer_id 
+ORDER by 
+  customer_id ASC;
+-- Calculate the difference in Average Rating between Mobile App and Online Interface for each customer
+With CTE1 as (
+  SELECT 
+    * 
+  from 
+    PD2023_WK06_DSB_CUSTOMER_SURVEY as CS unpivot (
+      rating for Pivot1 in (
+        MOBILE_APP___EASE_OF_ACCESS, mobile_app___ease_of_use, 
+        mobile_app___navigation, mobile_app___likelihood_to_recommend, 
+        mobile_app___overall_rating, online_interface___ease_of_access, 
+        online_interface___ease_of_use, 
+        online_interface___likelihood_to_recommend, 
+        online_interface___navigation, 
+        online_interface___overall_rating
+      )
+    ) 
+  order by 
+    customer_id
+), 
+CTE2 as (
+  SELECT 
+    customer_id as id, 
+    Rating, 
+    split_part(Pivot1, '___', 2) as rating_type, 
+    split_part(Pivot1, '___', 1) as Platform 
+  from 
+    CTE1 
+  where 
+    RATING_TYPE != 'OVERALL_RATING'
+), 
+CTE3 as (
+  Select 
+    Platform, 
+    AVG(rating) as m_rating, 
+    id 
+  from 
+    CTE2 
+  where 
+    PLATFORM = 'MOBILE_APP' 
+  group by 
+    Platform, 
+    id 
+  ORDER by 
+    id ASC
+), 
+CTE4 as (
+  Select 
+    Platform, 
+    AVG(rating) as o_rating, 
+    id 
+  from 
+    CTE2 
+  where 
+    PLATFORM != 'MOBILE_APP' 
+  group by 
+    Platform, 
+    id 
+  ORDER by 
+    id ASC
+) 
+SELECT 
+  SUM(m_rating)- SUM(o_rating) as M_vs_O, 
+  CTE4.ID 
+from 
+  CTE3 
+  join CTE4 on CTE3.id = CTE4.id 
+Group by 
+  CTE4.ID 
+ORDER BY 
+  CTE4.ID ASC;
+-- Catergorise customers as being:
+-- Mobile App Superfans if the difference is greater than or equal to 2 in the Mobile App's favour
+-- Mobile App Fans if difference >= 1
+-- Online Interface Fan
+-- Online Interface Superfan
+-- Neutral if difference is between 0 and 1
+With CTE1 as (
+  SELECT 
+    * 
+  from 
+    PD2023_WK06_DSB_CUSTOMER_SURVEY as CS unpivot (
+      rating for Pivot1 in (
+        MOBILE_APP___EASE_OF_ACCESS, mobile_app___ease_of_use, 
+        mobile_app___navigation, mobile_app___likelihood_to_recommend, 
+        mobile_app___overall_rating, online_interface___ease_of_access, 
+        online_interface___ease_of_use, 
+        online_interface___likelihood_to_recommend, 
+        online_interface___navigation, 
+        online_interface___overall_rating
+      )
+    ) 
+  order by 
+    customer_id
+), 
+CTE2 as (
+  SELECT 
+    customer_id as id, 
+    Rating, 
+    split_part(Pivot1, '___', 2) as rating_type, 
+    split_part(Pivot1, '___', 1) as Platform 
+  from 
+    CTE1 
+  where 
+    RATING_TYPE != 'OVERALL_RATING'
+), 
+CTE3 as (
+  Select 
+    Platform, 
+    AVG(rating) as m_rating, 
+    id 
+  from 
+    CTE2 
+  where 
+    PLATFORM = 'MOBILE_APP' 
+  group by 
+    Platform, 
+    id 
+  ORDER by 
+    id ASC
+), 
+CTE4 as (
+  Select 
+    Platform, 
+    AVG(rating) as o_rating, 
+    id 
+  from 
+    CTE2 
+  where 
+    PLATFORM != 'MOBILE_APP' 
+  group by 
+    Platform, 
+    id 
+  ORDER by 
+    id ASC
+) 
+SELECT 
+  SUM(m_rating)- SUM(o_rating) as M_vs_O, 
+  CTE4.ID, 
+  Case when M_vs_O >= 2 then 'Mobile App Superfan' when M_vs_O >= 1 then 'Mobile App Fan' when M_vs_O Between 0 
+  and 1 then 'Neutral' when M_vs_O < 0 then 'Online Interface Fan' when M_vs_O <= -2 then 'Online Interface Fan' end as Rating_Category 
+from 
+  CTE3 
+  join CTE4 on CTE3.id = CTE4.id 
+Group by 
+  CTE4.ID 
+ORDER BY 
+  CTE4.ID ASC;
+-- Calculate the Percent of Total customers in each category, rounded to 1 decimal place
+-- Output the data
+With CTE1 as (
+  SELECT 
+    * 
+  from 
+    PD2023_WK06_DSB_CUSTOMER_SURVEY as CS unpivot (
+      rating for Pivot1 in (
+        MOBILE_APP___EASE_OF_ACCESS, mobile_app___ease_of_use, 
+        mobile_app___navigation, mobile_app___likelihood_to_recommend, 
+        mobile_app___overall_rating, online_interface___ease_of_access, 
+        online_interface___ease_of_use, 
+        online_interface___likelihood_to_recommend, 
+        online_interface___navigation, 
+        online_interface___overall_rating
+      )
+    ) 
+  order by 
+    customer_id
+), 
+CTE2 as (
+  SELECT 
+    customer_id as id, 
+    Rating, 
+    split_part(Pivot1, '___', 2) as rating_type, 
+    split_part(Pivot1, '___', 1) as Platform 
+  from 
+    CTE1 
+  where 
+    RATING_TYPE != 'OVERALL_RATING'
+), 
+CTE3 as (
+  Select 
+    Platform, 
+    AVG(rating) as m_rating, 
+    id 
+  from 
+    CTE2 
+  where 
+    PLATFORM = 'MOBILE_APP' 
+  group by 
+    Platform, 
+    id 
+  ORDER by 
+    id ASC
+), 
+CTE4 as (
+  Select 
+    Platform, 
+    AVG(rating) as o_rating, 
+    id 
+  from 
+    CTE2 
+  where 
+    PLATFORM != 'MOBILE_APP' 
+  group by 
+    Platform, 
+    id 
+  ORDER by 
+    id ASC
+), 
+CTE5 as (
+  SELECT 
+    CTE3.m_rating, 
+    CTE4.o_rating, 
+    CTE3.m_rating - CTE4.o_rating as M_vs_O, 
+    CTE4.ID, 
+    Case when M_vs_O >= 2 then 'Mobile App Superfan' when M_vs_O >= 1 
+    and M_vs_O < 2 then 'Mobile App Fan' when M_vs_O <= -1 
+    AND M_vs_O >-2 then 'Online Interface Fan' when M_vs_O <= -2 then 'Online Interface SuperFan' else 'Neutral' end as Rating_Category 
+  from 
+    CTE3 
+    join CTE4 on CTE3.id = CTE4.id 
+  ORDER BY 
+    CTE4.ID ASC
+) 
+select 
+  count(id), 
+  rating_category, 
+  (
+    SELECT 
+      count(*) 
+    FROM 
+      CTE5
+  ), 
+  COUNT(ID) / (
+    SELECT 
+      count(*) 
+    FROM 
+      CTE5
+  ) * 100 
+from 
+  CTE5 
+group by 
+  Rating_category;
