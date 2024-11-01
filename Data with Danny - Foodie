@@ -1,0 +1,259 @@
+--Section A
+--Based off the 8 sample customers provided in the sample from the subscriptions table, 
+--write a brief description about each customer’s onboarding journey.
+select 
+  CUSTOMER_ID, 
+  plan_name, 
+  START_DATE, 
+  price 
+FROM 
+  subscriptions AS S 
+  JOIN plans AS P On S.PLAN_ID = S.PLAN_ID 
+Where 
+  customer_id < 9;
+--How many customers has Foodie-Fi ever had?
+SELECT 
+  count(distinct customer_id) as total_customers 
+FROM 
+  subscriptions;
+--What is the monthly distribution of trial plan start_date values for our dataset - use the start of the month as the group by value
+select 
+  COUNT(customer_id), 
+  date_part('Month', start_date) as month 
+from 
+  subscriptions AS s 
+  Left JOIN PLANS as p ON s.plan_id = p.plan_id 
+where 
+  plan_name = 'trial' 
+group by 
+  month, 
+  p.plan_name 
+order by 
+  month ASC;
+--What plan start_date values occur after the year 2020 for our dataset? Show the breakdown by count of events for each plan_name
+select 
+  count(customer_id), 
+  plan_name 
+from 
+  subscriptions as S 
+  left join PLANS as p ON s.plan_id = p.plan_id 
+where 
+  date_part ('year', start_date) > 2020 
+group by 
+  plan_name;
+--What is the customer count and percentage of customers who have churned rounded to 1 decimal place?
+Select 
+  (
+    select 
+      count(distinct customer_id) 
+    from 
+      subscriptions
+  ) as customer_count, 
+  count(customer_id) AS Churn_customer, 
+  Round(
+    (Churn_customer / customer_count)* 100, 
+    1
+  ) As Churnpercentage, 
+  plan_name 
+from 
+  subscriptions as S 
+  left join PLANS as p ON s.plan_id = p.plan_id 
+where 
+  plan_name = 'churn' 
+group by 
+  plan_name;
+--How many customers have churned straight after their initial free trial - what percentage is this rounded to the nearest whole number?
+WITH CTE as (
+  select 
+    customer_id, 
+    CASE WHEN s.plan_id = 4 
+    AND ROW_NUMBER () OVER (
+      Partition by customer_id 
+      order by 
+        start_date ASC
+    )= 2 then 1 else 0 end AS C_after_T 
+  from 
+    subscriptions as S 
+    left join PLANS as p ON s.plan_id = p.plan_id
+) -- Brings only the customers who chruned straight after a tril. 
+SELECT 
+  count(distinct customer_id) as Churned_after_trial, 
+  round (
+    count (distinct customer_id)/(
+      select 
+        count (distinct customer_id) 
+      from 
+        subscriptions
+    )* 100, 
+    0
+  ) as ChurnedPercentage 
+from 
+  CTE 
+WHERE 
+  C_after_T = 1;
+--churn = 4
+--ROW_NUMBER () OVER (Partition by ID ORDER by joining_date ASC) as RN
+--What is the number and percentage of customer plans after their initial free trial?
+With CTE AS (
+  select 
+    customer_id, 
+    s.plan_id, 
+    plan_name, 
+    ROW_NUMBER () OVER (
+      Partition by customer_id 
+      order by 
+        start_date ASC
+    ) AS RN 
+  from 
+    subscriptions as S 
+    inner join PLANS as p ON s.plan_id = p.plan_id
+) 
+SELECT 
+  count(customer_id), 
+  count(customer_id)/(
+    SELECT 
+      COUNT(distinct customer_id) 
+    from 
+      subscriptions
+  )* 100 as planpercentage, 
+  plan_name 
+FROM 
+  CTE 
+where 
+  RN = 2 
+  and plan_name != 'churn' 
+GROUP by 
+  Plan_name;
+--What is the customer count and percentage breakdown of all 5 plan_name values at 2020-12-31?
+With CTE AS(
+  Select 
+    *, 
+    ROW_NUMBER () OVER (
+      Partition by customer_id 
+      order by 
+        start_date desc
+    ) as RN 
+  from 
+    subscriptions as S 
+    inner join PLANS as p ON s.plan_id = p.plan_id 
+  where 
+    start_date <= '2020-12-31' -- the change to the plan already existed before or happened on the above date. doing > the date means the plans that changed after
+    ) 
+SELECT 
+  Count(customer_id), 
+  PLAN_NAME 
+from 
+  CTE 
+Where 
+  RN = 1 
+Group by 
+  plan_name;
+--How many customers have upgraded to an annual plan in 2020?
+SELECT 
+  count(customer_id), 
+  plan_name 
+from 
+  subscriptions as S 
+  Left JOIN PLANS as p ON s.plan_id = p.plan_id 
+where 
+  Date_part ('year', start_date) = '2020' 
+  AND PLAN_NAME = 'pro annual' 
+group by 
+  plan_name;
+--How many days on average does it take for a customer to an annual plan from the day they join Foodie-Fi?
+With Trial AS(
+  SELECT 
+    *, 
+    start_date as Trial_start 
+  from 
+    subscriptions as S 
+  where 
+    s.PLAN_ID = 0
+), 
+Annual AS (
+  SELECT 
+    *, 
+    start_date as Annual_start 
+  from 
+    subscriptions as S 
+  where 
+    s.PLAN_ID = 3
+) 
+Select 
+  AVG(
+    DATEDIFF('day', trial_start, annual_start)
+  ) as AVG_days_to_annual 
+from 
+  annual as A 
+  INNER Join TRIAL as T ON A.customer_id = T.customer_id;
+-- In this Q, need to sperate and for a field for just the date of when a member started a trial/annual plan
+-- each plan type needs to be filters down and named in a CTE
+--each CTE can then be inserted as a field 
+--Can you further breakdown this average value into 30 day periods (i.e. 0-30 days, 31-60 days etc)
+WITH CTE AS (
+  With Trial AS(
+    SELECT 
+      *, 
+      start_date as Trial_start 
+    from 
+      subscriptions as S 
+    where 
+      s.PLAN_ID = 0
+  ), 
+  Annual AS (
+    SELECT 
+      *, 
+      start_date as Annual_start 
+    from 
+      subscriptions as S 
+    where 
+      s.PLAN_ID = 3
+  ) 
+  Select 
+    Trial_start, 
+    Annual_start, 
+    a.customer_id, 
+    datediff('day', trial_start, annual_start) AS days, 
+    Case When days BETWEEN 0 
+    and 30 then '30' When days < 60 then '60' when days < 90 then '90' when days < 120 then '120' When days < 150 then '150' when days < 180 then '180' when days < 210 then '210' when days < 240 then '240' When days < 270 then '270' when days < 300 then '300' when days < 330 then '330' when days < 360 then '360' when days < 390 then '390' else '' end AS day_cat 
+  from 
+    annual as A 
+    INNER Join TRIAL as T ON A.customer_id = T.customer_id
+) 
+select 
+  COUNT (customer_id), 
+  AVG(days), 
+  DAY_CAT 
+FROM 
+  CTE 
+Group by 
+  Day_CAT;
+-- How many customers downgraded from a pro monthly to a basic monthly plan in 2020?
+WITH PRO_MONTH AS (
+  SELECT 
+    * 
+  from 
+    subscriptions as S 
+  where 
+    s.plan_id = 2
+), 
+BASIC_MONTH AS (
+  SELECT 
+    * 
+  from 
+    subscriptions as S 
+  where 
+    s.plan_id = 1
+) 
+SELECT 
+  Pro.customer_id, 
+  Pro.start_date AS Prostart, 
+  b.start_date as basicstart, 
+  pro.plan_id, 
+  b.plan_id 
+from 
+  PRO_MONTH as pro 
+  inner Join basic_month as b ON pro.customer_id = b.customer_id 
+Where 
+  DATE_PART('year', pro.start_date) = 2020 
+  AND prostart < basicstart;
