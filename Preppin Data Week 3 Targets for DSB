@@ -1,0 +1,121 @@
+--For the transactions file:
+--Filter the transactions to just look at DSB (help)
+--These will be transactions that contain DSB in the Transaction Code field
+--Rename the values in the Online or In-person field, Online of the 1 values and In-Person for the 2 values
+--Change the date to be the quarter (help)
+--Sum the transaction values for each quarter and for each Type of Transaction (Online or In-Person) (help)
+
+--For the targets file:
+--Pivot the quarterly targets so we have a row for each Type of Transaction and each Quarter (help)
+-- Rename the fields
+---Remove the 'Q' from the quarter field and make the data type numeric (help)
+--Join the two datasets together (help)
+--You may need more than one join clause!
+--Remove unnecessary fields
+--Calculate the Variance to Target for each row (help)
+
+
+
+
+--Filter the transactions to just look at DSB (help)
+--These will be transactions that contain DSB in the Transaction Code field
+--Rename the values in the Online or In-person field, Online of the 1 values and In-Person for the 2 values
+--Change the date to be the quarter (help)
+--Sum the transaction values for each quarter and for each Type of Transaction (Online or In-Person) (help)
+
+
+WITH cte AS
+(
+         SELECT
+                  CASE
+                           WHEN online_or_in_person = '1' THEN 'ONLINE'
+                           ELSE 'In-Person'
+                  END                                                     AS SaleLocation,
+                  Quarter(Date (LEFT(transaction_date,10), 'dd/MM/yyyy')) AS Qdate,
+                  Sum(value)
+         FROM     pd2023_wk01 AS W1T
+         WHERE    transaction_code LIKE 'DSB%'
+         GROUP BY qdate,
+                  salelocation)
+SELECT *
+FROM   cte;
+
+--For the targets file:
+--Pivot the quarterly targets so we have a row for each Type of Transaction and each Quarter (help)
+-- Rename the fields
+---Remove the 'Q' from the quarter field and make the data type numeric (help)
+--Join the two datasets together (help)
+--You may need more than one join clause!
+--Remove unnecessary fields
+--Calculate the Variance to Target for each row (help)SELECT *
+FROM   til_playground.preppin_data_inputs.pd2023_wk03_targets AS Target;
+
+--Pivot the quarterly targets so we have a row for each Type of Transaction and each Quarter (help)
+-- Rename the fieldsSELECT online_or_in_person,
+       quarter,
+       target
+FROM   pd2023_wk03_targets AS targets UNPIVOT (target FOR quarter IN (q1,
+                                                                      q2,
+                                                                      q3,
+                                                                      q4));
+
+-- 'For quarter' is where the old column names (Q1,Q2,Q3,Q4) will move to as row names
+-- 'in target' is the new column field where the values will be pivoted in
+---Remove the 'Q' from the quarter field and make the data type numeric (help)SELECT online_or_in_person,
+       Replace(quarter,'Q','')::int AS quarter,
+       target
+FROM   pd2023_wk03_targets AS targets UNPIVOT (target FOR quarter IN (q1,
+                                                                      q2,
+                                                                      q3,
+                                                                      q4)) ;
+
+--Join the two datasets together (help)
+--Remove unnecessary fieldsWITH cte AS
+(
+         SELECT
+                  CASE
+                           WHEN online_or_in_person = '1' THEN 'Online'
+                           WHEN online_or_in_person = '2' THEN 'In-Person'
+                  END                                                     AS salelocation,
+                  Quarter(Date (LEFT(transaction_date,10), 'dd/MM/yyyy')) AS qdate,
+                  Sum(value)                                              AS value
+         FROM     pd2023_wk01                                             AS w1t
+         WHERE    transaction_code LIKE 'DSB%'
+         GROUP BY qdate,
+                  salelocation )
+SELECT    online_or_in_person,
+          Replace(t.quarter,'Q','')::int AS quarter,
+          target,
+          value
+FROM      pd2023_wk03_targets AS t UNPIVOT (target FOR quarter IN (q1,
+                                                                   q2,
+                                                                   q3,
+                                                                   q4))
+LEFT JOIN cte
+ON        t.online_or_in_person = cte.salelocation
+AND       replace(t.quarter,'Q','')::int =cte.qdate ;
+
+--Calculate the Variance to Target for each row (help)WITH cte AS
+(
+         SELECT
+                  CASE
+                           WHEN online_or_in_person = '1' THEN 'Online'
+                           WHEN online_or_in_person = '2' THEN 'In-Person'
+                  END                                                     AS salelocation,
+                  Quarter(Date (LEFT(transaction_date,10), 'dd/MM/yyyy')) AS qdate,
+                  Sum(value)                                              AS value
+         FROM     pd2023_wk01                                             AS w1t
+         WHERE    transaction_code LIKE 'DSB%'
+         GROUP BY qdate,
+                  salelocation )
+SELECT    online_or_in_person,
+          Replace(t.quarter,'Q','')::int AS quarter,
+          target,
+          value
+FROM      pd2023_wk03_targets AS t UNPIVOT (target FOR quarter IN (q1,
+                                                                   q2,
+                                                                   q3,
+                                                                   q4))
+LEFT JOIN cte
+ON        t.online_or_in_person = cte.salelocation
+AND       replace(t.quarter,'Q','')::int =cte.qdate ;
