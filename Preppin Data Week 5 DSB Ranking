@@ -1,0 +1,72 @@
+-- Input data
+-- Create the bank code by splitting out off the letters from the Transaction code, call this field 'Bank'
+-- Change transaction date to the just be the month of the transaction
+-- Total up the transaction values so you have one row for each bank and month combination
+-- Rank each bank for their value of transactions each month against the other banks. 1st is the highest value of transactions, 3rd the lowest. 
+-- Without losing all of the other data fields, find:
+-- The average rank a bank has across all of the months, call this field 'Avg Rank per Bank'
+-- The average transaction value per rank, call this field 'Avg Transaction Value per Rank'
+-- Output the data
+
+
+SELECT Sum(value)                                                 AS
+       total_transactions
+       ,
+       Split_part(transaction_code, '-', 1)                       AS
+       BANK,
+       Monthname(Date(transaction_date, 'dd/MM/yyyy hh24:mi:ss')) AS Month,
+FROM   pd2023_wk01
+GROUP  BY bank,
+          month;
+
+-- Rank each bank for their value of transactions each month against the other banks. 1st is the highest value of transactions, 3rd the lowest.
+SELECT Split_part(transaction_code, '-', 1)                       AS BANK,
+       Monthname(Date(transaction_date, 'dd/MM/yyyy hh24:mi:ss')) AS Month,
+       Rank()
+         OVER(
+           partition BY month
+           ORDER BY Sum(value) DESC)                              AS
+       Leading_Bank
+FROM   pd2023_wk01
+GROUP  BY bank,
+          month;
+
+-- Without losing all of the other data fields, find:
+-- The average rank a bank has across all of the months, call this field 'Avg Rank per Bank'
+-- The average transaction value per rank, call this field 'Avg Transaction Value per Rank'
+WITH cte1
+     AS (SELECT Sum(value)                                                 AS
+                TRANSACTION,
+                Split_part(transaction_code, '-', 1)                       AS
+                BANK,
+                Monthname(Date(transaction_date, 'dd/MM/yyyy hh24:mi:ss')) AS
+                Month,
+                Rank()
+                  OVER(
+                    partition BY month
+                    ORDER BY Sum(value) DESC)                              AS
+                RANK1
+         FROM   pd2023_wk01
+         GROUP  BY bank,
+                   month),
+     cte2
+     AS (SELECT Avg(TRANSACTION) AS AVG_TRANSACTION_VALUE_PER_BANK,
+                rank1
+         FROM   cte1
+         GROUP  BY rank1),
+     cte3
+     AS (SELECT Avg(rank1) AS AVG_rank_per_bank,
+                bank
+         FROM   cte1
+         GROUP  BY bank)
+SELECT cte2.avg_transaction_value_per_bank,
+       cte3.avg_rank_per_bank,
+       cte1.bank,
+       TRANSACTION,
+       month,
+       cte2.rank1
+FROM   cte1
+       INNER JOIN cte2
+               ON cte1.rank1 = cte2.rank1
+       INNER JOIN cte3
+               ON cte1.bank = cte3.bank; 
