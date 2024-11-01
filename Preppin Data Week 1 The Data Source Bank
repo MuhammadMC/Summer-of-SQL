@@ -1,6 +1,3 @@
-SELECT *,
-       Split_part(transaction_code,'-',1) AS Bank
-FROM   pd2023_wk01 ;//
 --Requirements
 --Input the data (help)
 --Split the Transaction Code to extract the letters at the start of the transaction code. These identify the bank who processes the transaction (help)
@@ -11,8 +8,9 @@ FROM   pd2023_wk01 ;//
 --1. Total Values of Transactions by each bank
 --2. Total Values by Bank, Day of the Week and Type of Transaction (Online or In-Person)
 --3. Total Values by Bank and Customer Code
---Output each data file (help)
---SELECT *,
+--Output each data file 
+
+SELECT *,
        Split_part(transaction_code,'-',1) AS Bank,
        CASE
               WHEN online_or_in_person = 1 THEN 'Online'
@@ -35,7 +33,9 @@ GROUP BY bank,
          online_or_in_person,
          day_of_week;
 
---3. Total Values by Bank and Customer CodeSELECT   Split_part(transaction_code,'-',1) AS Bank,
+--3. Total Values by Bank and Customer Code
+
+SELECT   Split_part(transaction_code,'-',1) AS Bank,
          Sum(value)
 FROM     til_playground.preppin_data_inputs.pd2023_wk01
 GROUP BY bank;SELECT   customer_code,
