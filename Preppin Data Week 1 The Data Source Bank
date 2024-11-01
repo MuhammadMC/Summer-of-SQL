@@ -1,0 +1,46 @@
+SELECT *,
+       Split_part(transaction_code,'-',1) AS Bank
+FROM   pd2023_wk01 ;//
+--Requirements
+--Input the data (help)
+--Split the Transaction Code to extract the letters at the start of the transaction code. These identify the bank who processes the transaction (help)
+--Rename the new field with the Bank code 'Bank'.
+--Rename the values in the Online or In-person field, Online of the 1 values and In-Person for the 2 values.
+--Change the date to be the day of the week (help)
+--Different levels of detail are required in the outputs. You will need to sum up the values of the transactions in three ways (help):
+--1. Total Values of Transactions by each bank
+--2. Total Values by Bank, Day of the Week and Type of Transaction (Online or In-Person)
+--3. Total Values by Bank and Customer Code
+--Output each data file (help)
+--SELECT *,
+       Split_part(transaction_code,'-',1) AS Bank,
+       CASE
+              WHEN online_or_in_person = 1 THEN 'Online'
+              WHEN online_or_in_person = 2 THEN 'In Person'
+       END                                                       AS online_or_in_person,
+       Dayname(Date (transaction_date, 'dd/MM/yyyy hh24:mi:ss')) AS day_of_week,
+       *
+FROM   til_playground.preppin_data_inputs.pd2023_wk01 ;SELECT   Split_part(transaction_code,'-',1) AS Bank,
+         Sum(value)
+FROM     pd2023_wk01
+GROUP BY bank;SELECT   Split_part(transaction_code,'-',1) AS Bank ,
+         CASE
+                  WHEN online_or_in_person = 1 THEN 'Online'
+                  WHEN online_or_in_person = 2 THEN 'In Person'
+         END                                                       AS online_or_in_person,
+         Dayname(Date (transaction_date, 'dd/MM/yyyy hh24:mi:ss')) AS day_of_week,
+         Sum(value)                                                AS total_value
+FROM     pd2023_wk01
+GROUP BY bank,
+         online_or_in_person,
+         day_of_week;
+
+--3. Total Values by Bank and Customer CodeSELECT   Split_part(transaction_code,'-',1) AS Bank,
+         Sum(value)
+FROM     til_playground.preppin_data_inputs.pd2023_wk01
+GROUP BY bank;SELECT   customer_code,
+         Sum(value)                         AS total_value,
+         Split_part(transaction_code,'-',1) AS Bank
+FROM     pd2023_wk01
+GROUP BY bank,
+         customer_code;
